@@ -8,39 +8,49 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Was jetzt?">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f6f1e9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1b1a17" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fff4f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#241a20" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root {
-    --bg: #f6f1e9; --card: #fffdf9; --ink: #25221c; --soft: #6f685b; --line: #e4dccd;
-    --accent: #b4532a; --ok: #3f7a52; --warn: #a8641a;
-    --arbeit: #3d5a80; --privat: #8a4f7d; --haushalt: #5d7a3a;
+    --bg: #fff4f1; --card: #ffffff; --ink: #3b2c35; --soft: #8a7480; --line: #f6dcdc;
+    --accent: #e8718d; --ok: #4fa77f; --warn: #d98a3d;
+    --arbeit: #dcebff; --privat: #f3e1ff; --haushalt: #e2f5d8;
+    --blob: #ffd3dc; --cheek: #ff9fb5; --shadow: 0 6px 18px rgba(232, 113, 141, .12);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1b1a17; --card: #26241f; --ink: #f1ece2; --soft: #a59d8e; --line: #3a362e;
-      --accent: #e08a5b; --ok: #7fbf93; --warn: #e0a659;
-      --arbeit: #8fb0d9; --privat: #d19cc4; --haushalt: #a9c783;
+      --bg: #241a20; --card: #30232b; --ink: #fbeef2; --soft: #c2a9b5; --line: #45323c;
+      --accent: #ff93ad; --ok: #86d6ae; --warn: #f0b070;
+      --arbeit: #2c3b52; --privat: #44304f; --haushalt: #2f4430;
+      --blob: #ffb9c9; --cheek: #ff7f9c; --shadow: 0 6px 18px rgba(0, 0, 0, .25);
     }
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
-    font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font: 17px/1.45 ui-rounded, "SF Pro Rounded", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   main { max-width: 560px; margin: 0 auto; padding: 22px 18px 48px; }
   .eyebrow { color: var(--accent); font-weight: 600; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
   h1 { margin: 2px 0 6px; font-size: 32px; line-height: 1.15; letter-spacing: -.01em; }
-  .meta { color: var(--soft); font-size: 15px; margin: 0 0 22px; }
+  .meta { color: var(--soft); font-size: 15px; margin: 0 0 6px; }
+  #meta { margin-bottom: 22px; }
   h2 { font-size: 15px; color: var(--soft); font-weight: 600; margin: 26px 0 10px; }
+  .hero { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+  .hero svg { width: 76px; height: 76px; flex: none; animation: bob 3.6s ease-in-out infinite; }
+  .hero h1 { margin-bottom: 0; }
+  @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+  @media (prefers-reduced-motion: reduce) { .hero svg { animation: none; } }
   .item {
-    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-    padding: 15px 16px; margin-bottom: 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 22px;
+    padding: 16px 17px; margin-bottom: 12px; box-shadow: var(--shadow);
   }
+  .tag { font-size: 13px; padding: 2px 9px; border-radius: 999px; color: var(--ink); }
+  .tag.arbeit { background: var(--arbeit); } .tag.privat { background: var(--privat); } .tag.haushalt { background: var(--haushalt); }
   .item.done { opacity: .55; }
   .item.done .text { text-decoration: line-through; }
   .project { font-size: 14px; color: var(--soft); margin-bottom: 3px; display: flex; gap: 8px; align-items: center; }
@@ -90,8 +100,24 @@
   </section>
 
   <section id="day" hidden>
-    <div class="eyebrow" id="weekday"></div>
-    <h1 id="date"></h1>
+    <div class="hero">
+      <svg viewBox="0 0 80 80" aria-hidden="true">
+        <path d="M40 8c17 0 30 11 30 30 0 20-12 34-30 34S10 58 10 38C10 19 23 8 40 8z" fill="var(--blob)"/>
+        <ellipse cx="24" cy="46" rx="6" ry="4" fill="var(--cheek)" opacity=".7"/>
+        <ellipse cx="56" cy="46" rx="6" ry="4" fill="var(--cheek)" opacity=".7"/>
+        <circle cx="30" cy="38" r="3.4" fill="#3b2c35"/>
+        <circle cx="50" cy="38" r="3.4" fill="#3b2c35"/>
+        <circle cx="31.2" cy="36.8" r="1.1" fill="#fff"/>
+        <circle cx="51.2" cy="36.8" r="1.1" fill="#fff"/>
+        <path d="M35 46q5 5 10 0" fill="none" stroke="#3b2c35" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M58 12l2.2 4.6 4.8.9-3.6 3.3.8 4.9-4.2-2.5-4.2 2.5.8-4.9-3.6-3.3 4.8-.9z" fill="#ffd66b"/>
+      </svg>
+      <div>
+        <div class="eyebrow" id="weekday"></div>
+        <h1 id="date"></h1>
+      </div>
+    </div>
+    <p class="meta" id="hello"></p>
     <p class="meta" id="meta"></p>
     <div id="items"></div>
     <footer>
@@ -136,6 +162,13 @@
     $('weekday').textContent = d.toLocaleDateString('de-DE', { weekday: 'long' });
     $('date').textContent = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' });
 
+    const h = new Date().getHours();
+    $('hello').textContent = h < 5 ? 'Noch wach? Schön, dass du da bist. 🌙'
+      : h < 11 ? 'Guten Morgen, Sara. ☀️'
+      : h < 14 ? 'Hallo Sara, schon was gegessen? 🥪'
+      : h < 18 ? 'Hallo Sara, schön, dass du reinschaust. 🌸'
+      : 'Guten Abend, Sara. 🌙';
+
     const items = data.items || [];
     if (data.source === 'plan') {
       const open = items.filter((i) => !i.done).length;
@@ -154,7 +187,8 @@
     for (const it of items) {
       const card = el('div', 'item' + (it.done ? ' done' : ''));
       const proj = el('div', 'project');
-      proj.append(el('span', 'dot ' + (it.area || '')), el('span', null, it.project || 'Ohne Projekt'));
+      const emoji = { arbeit: '💼', privat: '🌷', haushalt: '🧺' }[it.area] || '✨';
+      proj.append(el('span', 'tag ' + (it.area || ''), emoji + ' ' + (it.area || 'sonstiges')), el('span', null, it.project || 'Ohne Projekt'));
       card.append(proj, el('div', 'text', it.text));
       const chips = el('div', 'chips');
       if (it.done) chips.append(el('span', 'chip ok', 'erledigt'));

@@ -42,6 +42,8 @@
   h2 { font-size: 15px; color: var(--soft); font-weight: 600; margin: 26px 0 10px; }
   .hero { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
   .hero svg { width: 76px; height: 76px; flex: none; animation: bob 3.6s ease-in-out infinite; }
+  .hero svg.yay { animation: yay .7s ease-out; }
+  @keyframes yay { 0% { transform: scale(1); } 35% { transform: scale(1.25) rotate(-10deg); } 70% { transform: scale(.95) rotate(8deg); } 100% { transform: scale(1); } }
   .hero h1 { margin-bottom: 0; }
   @keyframes bob { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
   @media (prefers-reduced-motion: reduce) { .hero svg { animation: none; } }
@@ -49,9 +51,21 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 22px;
     padding: 16px 17px; margin-bottom: 12px; box-shadow: var(--shadow);
   }
-  .item { display: block; width: 100%; text-align: left; font: inherit; font-weight: 400; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .item:active { transform: scale(.985); }
-  .item.done { opacity: .55; }
+  .item { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .main { flex: 1; min-width: 0; display: block; text-align: left; font: inherit; font-weight: 400; color: inherit; background: none; border: 0; padding: 0; border-radius: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .check {
+    flex: none; width: 44px; height: 44px; border-radius: 50%; padding: 0; margin-top: 2px;
+    background: transparent; border: 2.5px solid var(--blob); color: transparent; font-size: 22px; line-height: 1;
+    display: grid; place-items: center; transition: transform .15s, background .15s;
+  }
+  .check:active { transform: scale(.88); }
+  .check.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .check[disabled] { opacity: .5; }
+  .ask { flex-basis: 100%; border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 12px; }
+  .ask p { margin: 0 0 10px; font-size: 16px; }
+  .ask .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ask button { padding: 11px 10px; font-size: 15px; }
+  .item.done .main { opacity: .5; }
   .item.done .title { text-decoration: line-through; }
   .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 7px; }
   .tag { font-size: 13px; padding: 2px 9px; border-radius: 999px; color: var(--ink); white-space: nowrap; flex: none; }
@@ -172,6 +186,30 @@
     return n;
   };
 
+  let askFinish = null;   // project_id, fuer das gerade gefragt wird, ob es ganz fertig ist
+  let busy = false;
+
+  function cheer() {
+    const m = document.querySelector('.hero svg');
+    m.classList.remove('yay'); void m.getBoundingClientRect(); m.classList.add('yay');
+    setTimeout(() => m.classList.remove('yay'), 750);
+  }
+
+  async function act(fn, args) {
+    if (busy) return;
+    busy = true;
+    const { data, error } = await db.rpc(fn, args);
+    busy = false;
+    if (error) { $('meta').textContent = 'Das hat gerade nicht geklappt. Versuch es bitte nochmal.'; return false; }
+    render(data);
+    return true;
+  }
+
+  async function toggle(it) {
+    if (it.done) { askFinish = null; await act('app_undo', { p_project_id: it.project_id }); }
+    else { askFinish = it.project_id; if (await act('app_done', { p_project_id: it.project_id, p_finished: false })) cheer(); }
+  }
+
   const AREA = { arbeit: '💼 Arbeit', privat: '🌷 Privat', haushalt: '🧺 Haushalt' };
 
   function dueInfo(due, today) {
@@ -236,7 +274,10 @@
         ? 'Alles von heute ist erledigt.'
         : (items.length === 1 ? 'Heute ist ein Punkt dran. Tipp ihn an für die Details.' : 'Heute sind ' + items.length + ' Punkte dran. Tipp einen an für die Details.');
     } else {
-      $('meta').textContent = 'Für heute gibt es noch keinen Plan. Das sind deine aktiven Projekte. Tipp eins an für den nächsten Schritt.';
+      const n = items.filter((i) => i.done).length;
+      $('meta').textContent = n > 0
+        ? (n === 1 ? 'Ein Punkt ist heute schon erledigt. ' : n + ' Punkte sind heute schon erledigt. ') + 'Für heute gibt es noch keinen Plan, das sind deine aktiven Projekte.'
+        : 'Für heute gibt es noch keinen Plan. Das sind deine aktiven Projekte. Tipp eins an für den nächsten Schritt.';
     }
 
     const box = $('items');
@@ -245,17 +286,42 @@
       box.append(el('div', 'note', 'Es ist nichts offen. Wenn das nicht stimmt, fehlt ein Plan oder ein aktives Projekt.'));
     }
     for (const it of items) {
-      const card = el('button', 'item' + (it.done ? ' done' : ''));
-      card.type = 'button';
+      const card = el('div', 'item' + (it.done ? ' done' : ''));
+      const main = el('button', 'main');
+      main.type = 'button';
       const top = el('div', 'top');
       top.append(el('span', 'tag ' + (it.area || ''), AREA[it.area] || '✨ Sonstiges'));
-      if (it.done) top.append(el('span', 'flag ok', 'erledigt'));
+      if (it.finished) top.append(el('span', 'flag ok', 'ganz fertig 🎉'));
+      else if (it.done) top.append(el('span', 'flag ok', 'heute erledigt'));
       else if (it.muss) top.append(el('span', 'flag', 'muss heute'));
-      card.append(top, el('div', 'title', it.title), facts(it, data.date));
-      card.addEventListener('click', () => openSheet(it, data.date));
+      main.append(top, el('div', 'title', it.title), facts(it, data.date));
+      main.addEventListener('click', () => openSheet(it, data.date));
+      card.append(main);
+
+      if (it.project_id != null) {
+        const check = el('button', 'check' + (it.done ? ' on' : ''), '✓');
+        check.type = 'button';
+        check.setAttribute('aria-label', it.done ? 'Haken zurücknehmen: ' + it.title : 'Erledigt: ' + it.title);
+        check.setAttribute('aria-pressed', it.done ? 'true' : 'false');
+        check.addEventListener('click', () => toggle(it));
+        card.append(check);
+      }
+
+      if (it.done && !it.finished && askFinish === it.project_id) {
+        const ask = el('div', 'ask');
+        ask.append(el('p', null, 'Schön! Ist das Vorhaben damit ganz fertig, oder geht es noch weiter?'));
+        const row = el('div', 'row');
+        const yes = el('button', null, 'Ganz fertig 🎉');
+        const no = el('button', 'quiet', 'Geht noch weiter');
+        yes.addEventListener('click', async () => { askFinish = null; if (await act('app_done', { p_project_id: it.project_id, p_finished: true })) cheer(); });
+        no.addEventListener('click', () => { askFinish = null; render(data); });
+        row.append(yes, no);
+        ask.append(row);
+        card.append(ask);
+      }
       box.append(card);
     }
-    $('stamp').textContent = 'Version 5 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    $('stamp').textContent = 'Version 6 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
   async function load() {

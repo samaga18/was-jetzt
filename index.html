@@ -49,11 +49,11 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 22px;
     padding: 16px 17px; margin-bottom: 12px; box-shadow: var(--shadow);
   }
-  .tag { font-size: 13px; padding: 2px 9px; border-radius: 999px; color: var(--ink); }
+  .tag { font-size: 13px; padding: 2px 9px; border-radius: 999px; color: var(--ink); white-space: nowrap; flex: none; }
   .tag.arbeit { background: var(--arbeit); } .tag.privat { background: var(--privat); } .tag.haushalt { background: var(--haushalt); }
   .item.done { opacity: .55; }
   .item.done .text { text-decoration: line-through; }
-  .project { font-size: 14px; color: var(--soft); margin-bottom: 3px; display: flex; gap: 8px; align-items: center; }
+  .project { font-size: 14px; color: var(--soft); margin-bottom: 5px; display: flex; gap: 8px; align-items: flex-start; }
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--soft); }
   .dot.arbeit { background: var(--arbeit); } .dot.privat { background: var(--privat); } .dot.haushalt { background: var(--haushalt); }
   .text { font-size: 18px; font-weight: 600; line-height: 1.3; }

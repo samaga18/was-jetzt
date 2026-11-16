@@ -49,19 +49,35 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 22px;
     padding: 16px 17px; margin-bottom: 12px; box-shadow: var(--shadow);
   }
+  .item { display: block; width: 100%; text-align: left; font: inherit; font-weight: 400; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .item:active { transform: scale(.985); }
+  .item.done { opacity: .55; }
+  .item.done .title { text-decoration: line-through; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 7px; }
   .tag { font-size: 13px; padding: 2px 9px; border-radius: 999px; color: var(--ink); white-space: nowrap; flex: none; }
   .tag.arbeit { background: var(--arbeit); } .tag.privat { background: var(--privat); } .tag.haushalt { background: var(--haushalt); }
-  .item.done { opacity: .55; }
-  .item.done .text { text-decoration: line-through; }
-  .project { font-size: 14px; color: var(--soft); margin-bottom: 5px; display: flex; gap: 8px; align-items: flex-start; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--soft); }
-  .dot.arbeit { background: var(--arbeit); } .dot.privat { background: var(--privat); } .dot.haushalt { background: var(--haushalt); }
-  .text { font-size: 18px; font-weight: 600; line-height: 1.3; }
-  .chips { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font-size: 13px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--soft); }
-  .chip.muss { border-color: var(--accent); color: var(--accent); }
-  .chip.late { border-color: var(--warn); color: var(--warn); }
-  .chip.ok { border-color: var(--ok); color: var(--ok); }
+  .flag { font-size: 13px; font-weight: 600; color: var(--accent); }
+  .flag.ok { color: var(--ok); }
+  .title { font-size: 19px; font-weight: 600; line-height: 1.28; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .fact { border-radius: 14px; padding: 8px 11px; background: var(--bg); min-width: 0; }
+  .fact .k { font-size: 12px; color: var(--soft); display: block; }
+  .fact .v { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .fact.none .v { color: var(--soft); font-weight: 500; }
+  .fact.late .v { color: var(--warn); }
+  .backdrop { position: fixed; inset: 0; background: rgba(40, 20, 30, .45); display: flex; align-items: flex-end; z-index: 10; }
+  .sheet {
+    background: var(--card); width: 100%; max-width: 560px; margin: 0 auto; max-height: 86vh; overflow-y: auto;
+    border-radius: 26px 26px 0 0; padding: 10px 20px calc(22px + env(safe-area-inset-bottom));
+    animation: up .22s ease-out;
+  }
+  @keyframes up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .grip { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 14px; }
+  .sheet h3 { font-size: 22px; line-height: 1.25; margin: 8px 0 4px; }
+  .sheet h4 { font-size: 13px; color: var(--soft); font-weight: 600; margin: 18px 0 4px; }
+  .sheet p { margin: 0; font-size: 17px; }
+  .sheet .facts { margin-top: 14px; }
+  .sheet button { width: 100%; margin-top: 22px; }
   .note { background: transparent; border: 1px dashed var(--line); border-radius: 16px; padding: 14px 16px; color: var(--soft); font-size: 16px; }
   form { display: grid; gap: 12px; margin-top: 18px; }
   label { font-size: 14px; color: var(--soft); display: grid; gap: 5px; }
@@ -126,6 +142,10 @@
     </footer>
   </section>
 
+  <div class="backdrop" id="backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" id="sheet"></div>
+  </div>
+
   <section id="blocked" hidden>
     <div class="eyebrow">Was jetzt?</div>
     <h1>Kein Zugang</h1>
@@ -152,10 +172,50 @@
     return n;
   };
 
-  function daysLate(due, today) {
-    if (!due) return 0;
-    return Math.round((new Date(today) - new Date(due)) / 86400000);
+  const AREA = { arbeit: '💼 Arbeit', privat: '🌷 Privat', haushalt: '🧺 Haushalt' };
+
+  function dueInfo(due, today) {
+    if (!due) return { text: 'keine Frist', cls: 'none' };
+    const diff = Math.round((new Date(due) - new Date(today)) / 86400000);
+    if (diff < -1) return { text: 'seit ' + (-diff) + ' Tagen', cls: 'late' };
+    if (diff === -1) return { text: 'seit gestern', cls: 'late' };
+    if (diff === 0) return { text: 'heute', cls: '' };
+    if (diff === 1) return { text: 'morgen', cls: '' };
+    return { text: new Date(due + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'numeric' }), cls: '' };
   }
+
+  function fact(label, value, cls) {
+    const f = el('div', 'fact' + (cls ? ' ' + cls : ''));
+    f.append(el('span', 'k', label), el('span', 'v', value));
+    return f;
+  }
+
+  function facts(it, today) {
+    const row = el('div', 'facts');
+    row.append(it.duration_min ? fact('Dauer', it.duration_min + ' Min') : fact('Dauer', 'offen', 'none'));
+    const due = dueInfo(it.due, today);
+    row.append(fact('Fällig', due.text, due.cls));
+    return row;
+  }
+
+  function openSheet(it, today) {
+    const sh = $('sheet');
+    sh.replaceChildren();
+    sh.append(el('div', 'grip'));
+    sh.append(el('span', 'tag ' + (it.area || ''), AREA[it.area] || '✨ Sonstiges'));
+    sh.append(el('h3', null, it.title));
+    sh.append(facts(it, today));
+    const block = (label, text) => { if (text) sh.append(el('h4', null, label), el('p', null, text)); };
+    block('Erster Schritt', it.step && it.step !== it.title ? it.step : (it.step || 'Noch kein nächster Schritt festgelegt.'));
+    block('Warum heute', it.reason);
+    block('Was ich dazu weiß', it.note);
+    const close = el('button', 'quiet', 'Schließen');
+    close.addEventListener('click', closeSheet);
+    sh.append(close);
+    $('backdrop').hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSheet() { $('backdrop').hidden = true; document.body.style.overflow = ''; }
 
   function render(data) {
     const d = new Date(data.date + 'T12:00:00');
@@ -174,9 +234,9 @@
       const open = items.filter((i) => !i.done).length;
       $('meta').textContent = open === 0
         ? 'Alles von heute ist erledigt.'
-        : (items.length === 1 ? 'Heute ist ein Punkt dran.' : 'Heute sind ' + items.length + ' Punkte dran.');
+        : (items.length === 1 ? 'Heute ist ein Punkt dran. Tipp ihn an für die Details.' : 'Heute sind ' + items.length + ' Punkte dran. Tipp einen an für die Details.');
     } else {
-      $('meta').textContent = 'Für heute gibt es noch keinen Plan. Das sind deine aktiven Projekte mit ihrem nächsten Schritt.';
+      $('meta').textContent = 'Für heute gibt es noch keinen Plan. Das sind deine aktiven Projekte. Tipp eins an für den nächsten Schritt.';
     }
 
     const box = $('items');
@@ -185,18 +245,14 @@
       box.append(el('div', 'note', 'Es ist nichts offen. Wenn das nicht stimmt, fehlt ein Plan oder ein aktives Projekt.'));
     }
     for (const it of items) {
-      const card = el('div', 'item' + (it.done ? ' done' : ''));
-      const proj = el('div', 'project');
-      const emoji = { arbeit: '💼', privat: '🌷', haushalt: '🧺' }[it.area] || '✨';
-      proj.append(el('span', 'tag ' + (it.area || ''), emoji + ' ' + (it.area || 'sonstiges')), el('span', null, it.project || 'Ohne Projekt'));
-      card.append(proj, el('div', 'text', it.text));
-      const chips = el('div', 'chips');
-      if (it.done) chips.append(el('span', 'chip ok', 'erledigt'));
-      if (it.muss) chips.append(el('span', 'chip muss', 'muss heute'));
-      if (it.duration_min) chips.append(el('span', 'chip', it.duration_min + ' Min'));
-      const late = daysLate(it.due, data.date);
-      if (late > 0) chips.append(el('span', 'chip late', late === 1 ? 'seit gestern fällig' : 'seit ' + late + ' Tagen fällig'));
-      if (chips.children.length) card.append(chips);
+      const card = el('button', 'item' + (it.done ? ' done' : ''));
+      card.type = 'button';
+      const top = el('div', 'top');
+      top.append(el('span', 'tag ' + (it.area || ''), AREA[it.area] || '✨ Sonstiges'));
+      if (it.done) top.append(el('span', 'flag ok', 'erledigt'));
+      else if (it.muss) top.append(el('span', 'flag', 'muss heute'));
+      card.append(top, el('div', 'title', it.title), facts(it, data.date));
+      card.addEventListener('click', () => openSheet(it, data.date));
       box.append(card);
     }
     $('stamp').textContent = 'Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -244,6 +300,8 @@
     if (data.session) { $('loginMsg').textContent = ''; await load(); }
     else $('loginMsg').textContent = 'Fast fertig: Du hast eine Mail bekommen. Klick den Link darin und melde dich danach hier an.';
   });
+
+  $('backdrop').addEventListener('click', (e) => { if (e.target === $('backdrop')) closeSheet(); });
 
   const logout = async () => { await db.auth.signOut(); show('login'); };
   $('logout').addEventListener('click', logout);

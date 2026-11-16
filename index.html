@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Was jetzt?</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Was jetzt?">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f1e9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1a17" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #f6f1e9; --card: #fffdf9; --ink: #25221c; --soft: #6f685b; --line: #e4dccd;
+    --accent: #b4532a; --ok: #3f7a52; --warn: #a8641a;
+    --arbeit: #3d5a80; --privat: #8a4f7d; --haushalt: #5d7a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a17; --card: #26241f; --ink: #f1ece2; --soft: #a59d8e; --line: #3a362e;
+      --accent: #e08a5b; --ok: #7fbf93; --warn: #e0a659;
+      --arbeit: #8fb0d9; --privat: #d19cc4; --haushalt: #a9c783;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 22px 18px 48px; }
+  .eyebrow { color: var(--accent); font-weight: 600; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  h1 { margin: 2px 0 6px; font-size: 32px; line-height: 1.15; letter-spacing: -.01em; }
+  .meta { color: var(--soft); font-size: 15px; margin: 0 0 22px; }
+  h2 { font-size: 15px; color: var(--soft); font-weight: 600; margin: 26px 0 10px; }
+  .item {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 15px 16px; margin-bottom: 10px;
+  }
+  .item.done { opacity: .55; }
+  .item.done .text { text-decoration: line-through; }
+  .project { font-size: 14px; color: var(--soft); margin-bottom: 3px; display: flex; gap: 8px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--soft); }
+  .dot.arbeit { background: var(--arbeit); } .dot.privat { background: var(--privat); } .dot.haushalt { background: var(--haushalt); }
+  .text { font-size: 18px; font-weight: 600; line-height: 1.3; }
+  .chips { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 13px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--soft); }
+  .chip.muss { border-color: var(--accent); color: var(--accent); }
+  .chip.late { border-color: var(--warn); color: var(--warn); }
+  .chip.ok { border-color: var(--ok); color: var(--ok); }
+  .note { background: transparent; border: 1px dashed var(--line); border-radius: 16px; padding: 14px 16px; color: var(--soft); font-size: 16px; }
+  form { display: grid; gap: 12px; margin-top: 18px; }
+  label { font-size: 14px; color: var(--soft); display: grid; gap: 5px; }
+  input {
+    font: inherit; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); width: 100%;
+  }
+  button {
+    font: inherit; font-weight: 600; padding: 14px 16px; border-radius: 12px; border: 0;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.quiet { background: transparent; color: var(--soft); border: 1px solid var(--line); font-weight: 500; }
+  button.link { background: none; border: 0; color: var(--soft); font-weight: 500; padding: 8px 0; text-decoration: underline; }
+  .msg { color: var(--warn); font-size: 15px; min-height: 1.4em; }
+  footer { margin-top: 34px; color: var(--soft); font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="login" hidden>
+    <div class="eyebrow">Was jetzt?</div>
+    <h1>Anmelden</h1>
+    <p class="meta">Einmal anmelden, danach bleibt die App offen.</p>
+    <form id="loginForm">
+      <label>E-Mail
+        <input id="email" type="email" autocomplete="username" inputmode="email" required>
+      </label>
+      <label>Passwort
+        <input id="password" type="password" autocomplete="current-password" minlength="8" required>
+      </label>
+      <button type="submit">Anmelden</button>
+      <button type="button" class="quiet" id="signup">Zum ersten Mal hier: Konto anlegen</button>
+      <div class="msg" id="loginMsg" role="status"></div>
+    </form>
+  </section>
+
+  <section id="day" hidden>
+    <div class="eyebrow" id="weekday"></div>
+    <h1 id="date"></h1>
+    <p class="meta" id="meta"></p>
+    <div id="items"></div>
+    <footer>
+      <span id="stamp"></span>
+      <button class="link" id="logout">Abmelden</button>
+    </footer>
+  </section>
+
+  <section id="blocked" hidden>
+    <div class="eyebrow">Was jetzt?</div>
+    <h1>Kein Zugang</h1>
+    <p class="meta">Diese App gehört schon jemandem, und dieses Konto ist es nicht.</p>
+    <button class="quiet" id="logout2">Abmelden</button>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  const SUPABASE_URL = 'https://xdnueixnfxakgqzelssm.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_G5mnIXDjHziriAnWgTL9yw_OG02MWwB';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+
+  const $ = (id) => document.getElementById(id);
+  const show = (id) => ['login', 'day', 'blocked'].forEach((s) => { $(s).hidden = s !== id; });
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+
+  function daysLate(due, today) {
+    if (!due) return 0;
+    return Math.round((new Date(today) - new Date(due)) / 86400000);
+  }
+
+  function render(data) {
+    const d = new Date(data.date + 'T12:00:00');
+    $('weekday').textContent = d.toLocaleDateString('de-DE', { weekday: 'long' });
+    $('date').textContent = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' });
+
+    const items = data.items || [];
+    if (data.source === 'plan') {
+      const open = items.filter((i) => !i.done).length;
+      $('meta').textContent = open === 0
+        ? 'Alles von heute ist erledigt.'
+        : (items.length === 1 ? 'Heute ist ein Punkt dran.' : 'Heute sind ' + items.length + ' Punkte dran.');
+    } else {
+      $('meta').textContent = 'Für heute gibt es noch keinen Plan. Das sind deine aktiven Projekte mit ihrem nächsten Schritt.';
+    }
+
+    const box = $('items');
+    box.replaceChildren();
+    if (!items.length) {
+      box.append(el('div', 'note', 'Es ist nichts offen. Wenn das nicht stimmt, fehlt ein Plan oder ein aktives Projekt.'));
+    }
+    for (const it of items) {
+      const card = el('div', 'item' + (it.done ? ' done' : ''));
+      const proj = el('div', 'project');
+      proj.append(el('span', 'dot ' + (it.area || '')), el('span', null, it.project || 'Ohne Projekt'));
+      card.append(proj, el('div', 'text', it.text));
+      const chips = el('div', 'chips');
+      if (it.done) chips.append(el('span', 'chip ok', 'erledigt'));
+      if (it.muss) chips.append(el('span', 'chip muss', 'muss heute'));
+      if (it.duration_min) chips.append(el('span', 'chip', it.duration_min + ' Min'));
+      const late = daysLate(it.due, data.date);
+      if (late > 0) chips.append(el('span', 'chip late', late === 1 ? 'seit gestern fällig' : 'seit ' + late + ' Tagen fällig'));
+      if (chips.children.length) card.append(chips);
+      box.append(card);
+    }
+    $('stamp').textContent = 'Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function load() {
+    const { data: isOwner, error: claimErr } = await db.rpc('app_claim');
+    if (claimErr) { show('login'); $('loginMsg').textContent = 'Die Datenbank antwortet nicht. Versuch es gleich nochmal.'; return; }
+    if (!isOwner) { show('blocked'); return; }
+    const { data, error } = await db.rpc('app_today');
+    if (error) {
+      show('day');
+      $('items').replaceChildren(el('div', 'note', 'Der Tag konnte nicht geladen werden. Zieh die Seite neu oder versuch es gleich nochmal.'));
+      return;
+    }
+    render(data);
+    show('day');
+  }
+
+  async function start() {
+    const { data: { session } } = await db.auth.getSession();
+    if (session) await load(); else show('login');
+  }
+
+  $('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('loginMsg').textContent = 'Einen Moment …';
+    const { error } = await db.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+    if (error) {
+      $('loginMsg').textContent = /confirm/i.test(error.message)
+        ? 'Die Adresse ist noch nicht bestätigt. Schau in dein Postfach und klick den Link.'
+        : 'Das hat nicht geklappt. Stimmen Adresse und Passwort?';
+      return;
+    }
+    $('loginMsg').textContent = '';
+    await load();
+  });
+
+  $('signup').addEventListener('click', async () => {
+    const email = $('email').value.trim(), password = $('password').value;
+    if (!email || password.length < 8) { $('loginMsg').textContent = 'Trag oben eine Adresse und ein Passwort mit mindestens acht Zeichen ein.'; return; }
+    $('loginMsg').textContent = 'Einen Moment …';
+    const { data, error } = await db.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) { $('loginMsg').textContent = 'Das Konto konnte nicht angelegt werden: ' + error.message; return; }
+    if (data.session) { $('loginMsg').textContent = ''; await load(); }
+    else $('loginMsg').textContent = 'Fast fertig: Du hast eine Mail bekommen. Klick den Link darin und melde dich danach hier an.';
+  });
+
+  const logout = async () => { await db.auth.signOut(); show('login'); };
+  $('logout').addEventListener('click', logout);
+  $('logout2').addEventListener('click', logout);
+
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible' || $('day').hidden) return;
+    const { data, error } = await db.rpc('app_today');
+    if (!error) render(data);
+  });
+
+  start();
+})();
+</script>
+</body>
+</html>

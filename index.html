@@ -405,7 +405,10 @@
     if (!items.length) {
       box.append(el('div', 'note', 'Es ist nichts offen. Wenn das nicht stimmt, fehlt ein Plan oder ein aktives Projekt.'));
     }
-    for (const it of items) {
+    const ordered = items.filter((i) => !i.done).concat(items.filter((i) => i.done));
+    let doneHead = false;
+    for (const it of ordered) {
+      if (it.done && !doneHead) { doneHead = true; box.append(el('h2', null, 'Heute erledigt')); }
       const card = el('div', 'item' + (it.done ? ' done' : ''));
       const main = el('button', 'main');
       main.type = 'button';
@@ -441,7 +444,7 @@
       }
       box.append(card);
     }
-    $('stamp').textContent = 'Version 7 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    $('stamp').textContent = 'Version 8 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
   async function load() {

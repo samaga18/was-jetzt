@@ -255,7 +255,7 @@
       card.addEventListener('click', () => openSheet(it, data.date));
       box.append(card);
     }
-    $('stamp').textContent = 'Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    $('stamp').textContent = 'Version 5 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
   async function load() {

@@ -79,6 +79,23 @@
   .fact .v { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
   .fact.none .v { color: var(--soft); font-weight: 500; }
   .fact.late .v { color: var(--warn); }
+  .now { background: linear-gradient(160deg, var(--blob), var(--privat)); border-radius: 26px; padding: 18px 17px 17px; margin: 4px 0 8px; color: #3b2c35; box-shadow: var(--shadow); }
+  .now .lbl { font-size: 13px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .7; }
+  .now h2 { color: inherit; font-size: 24px; line-height: 1.2; margin: 2px 0 6px; }
+  .now p { margin: 0 0 12px; font-size: 16px; }
+  .now .sub { font-size: 13px; font-weight: 600; opacity: .7; margin: 10px 0 2px; }
+  .times { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .times button, .opt { background: rgba(255, 255, 255, .78); color: #3b2c35; border: 0; }
+  .times button { padding: 14px 4px; font-size: 16px; }
+  .opt { display: block; width: 100%; text-align: left; padding: 12px 14px; border-radius: 16px; margin-bottom: 8px; font-weight: 400; }
+  .opt .o1 { display: block; font-size: 12px; font-weight: 700; opacity: .65; }
+  .opt .o2 { display: block; font-size: 17px; font-weight: 600; line-height: 1.25; margin: 1px 0; }
+  .opt .o3 { display: block; font-size: 13px; opacity: .75; }
+  .now .row2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 14px; }
+  .now .row2 button.quiet, .now .links button { background: transparent; color: #3b2c35; border-color: rgba(59, 44, 53, .3); }
+  .now .links { display: flex; justify-content: space-between; margin-top: 2px; }
+  .now .links button { border: 0; padding: 8px 2px; font-size: 14px; font-weight: 500; text-decoration: underline; opacity: .8; }
+  @media (prefers-color-scheme: dark) { .now { background: linear-gradient(160deg, #ffc2d0, #e4c8f5); } }
   .backdrop { position: fixed; inset: 0; background: rgba(40, 20, 30, .45); display: flex; align-items: flex-end; z-index: 10; }
   .sheet {
     background: var(--card); width: 100%; max-width: 560px; margin: 0 auto; max-height: 86vh; overflow-y: auto;
@@ -149,6 +166,8 @@
     </div>
     <p class="meta" id="hello"></p>
     <p class="meta" id="meta"></p>
+    <div class="now" id="now" aria-live="polite"></div>
+    <h2 id="listHead">Alles, was gerade offen ist</h2>
     <div id="items"></div>
     <footer>
       <span id="stamp"></span>
@@ -210,6 +229,105 @@
     else { askFinish = it.project_id; if (await act('app_done', { p_project_id: it.project_id, p_finished: false })) cheer(); }
   }
 
+  // ---------- Was jetzt? ----------
+  let nowState = { state: 'idle' };
+  let lastData = null;
+  const FOCUS_KEY = 'wasjetzt.focus';
+  function loadFocus() { try { return JSON.parse(localStorage.getItem(FOCUS_KEY)); } catch (e) { return null; } }
+  function saveFocus(f) { try { if (f) localStorage.setItem(FOCUS_KEY, JSON.stringify(f)); else localStorage.removeItem(FOCUS_KEY); } catch (e) {} }
+  const mins = (n) => (n ? n + ' Min' : 'Dauer offen');
+
+  async function askNow(minutes) {
+    nowState = { state: 'loading' }; renderNow();
+    const { data, error } = await db.rpc('app_now', { p_minutes: minutes });
+    if (error) { nowState = { state: 'idle', msg: 'Das hat gerade nicht geklappt. Versuch es bitte nochmal.' }; renderNow(); return; }
+    nowState = { state: 'suggest', minutes, picks: data }; renderNow();
+  }
+
+  function choose(kind, it) {
+    const f = { kind, id: kind === 'small' ? it.id : it.project_id, title: it.title, step: kind === 'small' ? null : it.step, duration_min: it.duration_min, date: lastData && lastData.date };
+    saveFocus(f); nowState = { state: 'focus' }; renderNow();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function focusDone(f) {
+    saveFocus(null);
+    if (f.kind === 'small') {
+      nowState = { state: 'idle', msg: 'Erledigt, schön. Und was jetzt?' };
+      if (await act('app_small_done', { p_id: f.id })) cheer();
+    } else {
+      nowState = { state: 'ask', id: f.id, title: f.title };
+      if (await act('app_done', { p_project_id: f.id, p_finished: false })) cheer();
+    }
+  }
+
+  function renderNow() {
+    const box = $('now');
+    box.replaceChildren();
+    let f = loadFocus();
+    if (f && lastData && f.date !== lastData.date) { saveFocus(null); f = null; }
+    if (f && f.kind === 'project' && lastData && (lastData.items || []).some((i) => i.project_id === f.id && i.done)) { saveFocus(null); f = null; }
+
+    if (nowState.state === 'ask') {
+      box.append(el('div', 'lbl', 'Geschafft'), el('h2', null, nowState.title));
+      box.append(el('p', null, 'Schön! Ist das Vorhaben damit ganz fertig, oder geht es noch weiter?'));
+      const row = el('div', 'row2');
+      const yes = el('button', null, 'Ganz fertig 🎉'), no = el('button', 'quiet', 'Geht weiter');
+      const id = nowState.id;
+      yes.addEventListener('click', async () => { nowState = { state: 'idle', msg: 'Abgeschlossen. Und was jetzt?' }; askFinish = null; if (await act('app_done', { p_project_id: id, p_finished: true })) cheer(); });
+      no.addEventListener('click', () => { nowState = { state: 'idle', msg: 'Notiert. Und was jetzt?' }; renderNow(); });
+      row.append(yes, no); box.append(row);
+      return;
+    }
+
+    if (f) {
+      box.append(el('div', 'lbl', 'Du bist dran'), el('h2', null, f.title));
+      if (f.step && f.step !== f.title) box.append(el('div', 'sub', 'Erster Schritt'), el('p', null, f.step));
+      box.append(el('div', 'sub', 'Dauer'), el('p', null, mins(f.duration_min)));
+      const row = el('div', 'row2');
+      const done = el('button', null, 'Fertig ✓'), drop = el('button', 'quiet', 'Doch nicht');
+      done.addEventListener('click', () => focusDone(f));
+      drop.addEventListener('click', () => { saveFocus(null); nowState = { state: 'idle' }; renderNow(); });
+      row.append(done, drop); box.append(row);
+      return;
+    }
+
+    if (nowState.state === 'loading') { box.append(el('h2', null, 'Was jetzt?'), el('p', null, 'Ich schaue kurz, was passt …')); return; }
+
+    if (nowState.state === 'suggest') {
+      const p = nowState.picks;
+      box.append(el('h2', null, 'Was jetzt?'));
+      const lead = nowState.minutes ? 'Für ' + nowState.minutes + ' Minuten passt das. Such dir eins aus.' : 'Du hast Zeit. Such dir eins aus.';
+      box.append(el('p', null, p.main ? lead : 'In diese Zeit passt gerade kein offenes Vorhaben. Etwas Kleines geht aber.'));
+      const opt = (label, it, kind) => {
+        const b = el('button', 'opt'); b.type = 'button';
+        b.append(el('span', 'o1', label), el('span', 'o2', it.title), el('span', 'o3', mins(it.duration_min) + (kind === 'project' && it.step && it.step !== it.title ? ' · ' + it.step : '')));
+        b.addEventListener('click', () => choose(kind, it));
+        box.append(b);
+      };
+      if (p.main) opt('Mein Vorschlag', p.main, 'project');
+      if (p.other) opt('Oder das', p.other, 'project');
+      if (p.small) opt('Etwas Kleines', p.small, 'small');
+      const links = el('div', 'links');
+      const back = el('button', null, 'Andere Zeit'), again = el('button', null, 'Anderes Kleines 🎲');
+      back.addEventListener('click', () => { nowState = { state: 'idle' }; renderNow(); });
+      again.addEventListener('click', () => askNow(nowState.minutes));
+      links.append(back, again); box.append(links);
+      return;
+    }
+
+    box.append(el('h2', null, 'Was jetzt?'));
+    box.append(el('p', null, nowState.msg || 'Wie viel Zeit hast du gerade?'));
+    if (nowState.msg) box.append(el('p', null, 'Wie viel Zeit hast du gerade?'));
+    const times = el('div', 'times');
+    [[15, '15 Min'], [30, '30 Min'], [60, '60 Min'], [null, 'mehr']].forEach(([m, label]) => {
+      const b = el('button', null, label); b.type = 'button';
+      b.addEventListener('click', () => askNow(m));
+      times.append(b);
+    });
+    box.append(times);
+  }
+
   const AREA = { arbeit: '💼 Arbeit', privat: '🌷 Privat', haushalt: '🧺 Haushalt' };
 
   function dueInfo(due, today) {
@@ -256,6 +374,8 @@
   function closeSheet() { $('backdrop').hidden = true; document.body.style.overflow = ''; }
 
   function render(data) {
+    lastData = data;
+    renderNow();
     const d = new Date(data.date + 'T12:00:00');
     $('weekday').textContent = d.toLocaleDateString('de-DE', { weekday: 'long' });
     $('date').textContent = d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long' });
@@ -277,7 +397,7 @@
       const n = items.filter((i) => i.done).length;
       $('meta').textContent = n > 0
         ? (n === 1 ? 'Ein Punkt ist heute schon erledigt. ' : n + ' Punkte sind heute schon erledigt. ') + 'Für heute gibt es noch keinen Plan, das sind deine aktiven Projekte.'
-        : 'Für heute gibt es noch keinen Plan. Das sind deine aktiven Projekte. Tipp eins an für den nächsten Schritt.';
+        : 'Für heute gibt es noch keinen eigenen Plan, deshalb stehen unten alle aktiven Projekte.';
     }
 
     const box = $('items');
@@ -321,7 +441,7 @@
       }
       box.append(card);
     }
-    $('stamp').textContent = 'Version 6 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    $('stamp').textContent = 'Version 7 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
   async function load() {

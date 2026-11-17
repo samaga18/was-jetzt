@@ -96,6 +96,14 @@
   .now .links { display: flex; justify-content: space-between; margin-top: 2px; }
   .now .links button { border: 0; padding: 8px 2px; font-size: 14px; font-weight: 500; text-decoration: underline; opacity: .8; }
   @media (prefers-color-scheme: dark) { .now { background: linear-gradient(160deg, #ffc2d0, #e4c8f5); } }
+  .rest { margin-top: 26px; }
+  .rest summary { font-size: 15px; font-weight: 600; color: var(--soft); padding: 12px 2px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+  .rest summary::-webkit-details-marker { display: none; }
+  .rest summary::after { content: '▾'; font-size: 16px; transition: transform .2s; }
+  .rest[open] summary::after { transform: rotate(180deg); }
+  .rest .meta { margin-bottom: 12px; }
+  .rest .item { box-shadow: none; }
+  .flag.park { color: var(--soft); font-weight: 500; }
   .backdrop { position: fixed; inset: 0; background: rgba(40, 20, 30, .45); display: flex; align-items: flex-end; z-index: 10; }
   .sheet {
     background: var(--card); width: 100%; max-width: 560px; margin: 0 auto; max-height: 86vh; overflow-y: auto;
@@ -205,6 +213,7 @@
     return n;
   };
 
+  let restOpen = false;
   let askFinish = null;   // project_id, fuer das gerade gefragt wird, ob es ganz fertig ist
   let busy = false;
 
@@ -362,10 +371,16 @@
     sh.append(el('h3', null, it.title));
     sh.append(facts(it, today));
     const block = (label, text) => { if (text) sh.append(el('h4', null, label), el('p', null, text)); };
-    block('Erster Schritt', it.step && it.step !== it.title ? it.step : (it.step || 'Noch kein nächster Schritt festgelegt.'));
-    block('Warum heute', it.reason);
+    block('Erster Schritt', it.step || 'Noch kein nächster Schritt festgelegt.');
+    block(it.rest ? 'Nächster Schritt' : 'Warum heute', it.rest ? null : it.reason);
     block('Was ich dazu weiß', it.note);
+    if (it.rest) {
+      const pull = el('button', null, lastData && lastData.source === 'plan' ? 'Auf heute holen' : 'Wieder aktiv machen');
+      pull.addEventListener('click', async () => { closeSheet(); await act('app_pull_today', { p_project_id: it.project_id }); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      sh.append(pull);
+    }
     const close = el('button', 'quiet', 'Schließen');
+    if (it.rest) close.style.marginTop = '10px';
     close.addEventListener('click', closeSheet);
     sh.append(close);
     $('backdrop').hidden = false;
@@ -444,7 +459,28 @@
       }
       box.append(card);
     }
-    $('stamp').textContent = 'Version 8 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    const rest = data.rest || [];
+    if (rest.length) {
+      const det = el('details', 'rest');
+      det.open = restOpen;
+      det.addEventListener('toggle', () => { restOpen = det.open; });
+      det.append(el('summary', null, 'Nicht heute · ' + rest.length + (rest.length === 1 ? ' Vorhaben' : ' Vorhaben')));
+      det.append(el('p', 'meta', 'Das ist alles, was es sonst noch gibt. Tipp eins an, um es dir auf heute zu holen.'));
+      for (const r of rest) {
+        const it = Object.assign({ rest: true }, r);
+        const card = el('div', 'item');
+        const main = el('button', 'main'); main.type = 'button';
+        const top = el('div', 'top');
+        top.append(el('span', 'tag ' + (it.area || ''), AREA[it.area] || '✨ Sonstiges'));
+        if (it.parked) top.append(el('span', 'flag park', 'geparkt'));
+        main.append(top, el('div', 'title', it.title), facts(it, data.date));
+        main.addEventListener('click', () => openSheet(it, data.date));
+        card.append(main);
+        det.append(card);
+      }
+      box.append(det);
+    }
+    $('stamp').textContent = 'Version 9 · Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
   async function load() {
